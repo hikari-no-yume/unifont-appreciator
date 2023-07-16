@@ -1,0 +1,160 @@
+( hexdream.tal by hikari_no_yume, 2023-07-16 )
+( SPDX-License-Identifier: MIT )
+( this program reads the unifont hex file line by line, drawing each character,
+  one per frame. let the beauty of the world's writing systems mesmerise you for
+  16 minutes, with over 57,000 characters in the Basic Multilingual Plane! )
+
+|0000
+
+@line_buf 
+    &codepoint $4 &colon $1 &pixels $20 &newline_8x16 $1 &end_8x16 $1f &newline_16x16 $1 &end_16x16
+
+|0100
+    ( set filename )
+    ;FILENAME #a8 DEO2
+    ( set up screen palette: pleasant dark grey, white, uxn green, light grey )
+    #3f7d #08 DEO2 #3fed #0a DEO2 #3fcd #0c DEO2
+    ( set screen size )
+    #0040 #22 DEO2 #0040 #24 DEO2
+    ( set y for drawing "U+" )
+    #002b #2a DEO2
+    ( draw "U+" on background layer in uxn green )
+    ;5X5_DIGIT_FONT/u #2c DEO2 #000e #28 DEO2 #02 #2f DEOk DEO
+    ;5X5_DIGIT_FONT/plus #2c DEO2 #0014 #28 DEO2 #02 #2f DEOk DEO
+    ( set screen vector )
+    ;screen_vector #20 DEO2
+    BRK
+
+@FILENAME
+    "unifont/unifont-15.0.06.hex 00
+
+@linear_pixel_buf
+    &line0_16x16 $1 &line0offset1_16x16 $0f &line8_16x16 $1 &line8offset1_16x16 $0f
+
+@spr_buf
+    &spr00 $8 &spr10 $8 &spr01 $8 &spr11 $8
+
+@5X5_DIGIT_FONT
+    ( 5x5 hex digit font by me. edit it in noodle as digits01x12.icn )
+    70 88 88 88 70 00 00 00
+    20 20 20 20 20 00 00 00
+    f0 08 70 80 f8 00 00 00
+    f0 08 78 08 f0 00 00 00
+    88 88 f8 08 08 00 00 00
+    f8 80 f0 08 f0 00 00 00
+    70 80 f0 88 70 00 00 00
+    f8 08 10 20 20 00 00 00
+    70 88 70 88 70 00 00 00
+    70 88 78 08 70 00 00 00
+    70 88 f8 88 88 00 00 00
+    f0 88 f0 88 f0 00 00 00
+    78 80 80 80 78 00 00 00
+    f0 88 88 88 f0 00 00 00
+    f8 80 f0 80 f8 00 00 00
+    f8 80 f0 80 80 00 00 00
+    &u
+    88 88 88 88 70 00 00 00
+    &plus
+    20 20 f8 20 20 00 00 00
+
+@codepoint_buf
+    &byte0 $1 &byte1 $1
+
+@screen_vector
+    ( read the length of a 8x16 line into the buffer )
+    ;line_buf/end_8x16 #aa DEO2 ;line_buf #ac DEO2
+    ( does the length match, i.e. did the read succeed? )
+    ;line_buf/end_8x16 #a2 DEI2 NEQ2 ?&is_eof
+
+    ( decode hex for codepoint )
+    ;line_buf/colon ;line_buf/codepoint ;codepoint_buf decode_hex
+
+    ( clear foreground layer )
+    #0000 #28 DEO2 #0000 #2a DEO2 #c0 #2e DEO
+
+    ( set y and auto for drawing codepoint text )
+    #002b #2a DEO2 #00 #26 DEO
+    ( draw codepoint on foreground layer in light grey )
+    ;5X5_DIGIT_FONT #00 ;codepoint_buf/byte0 LDA #34 SFT ADD2 #2c DEO2
+    #001a #28 DEO2 #43 #2f DEOk DEO
+    ;5X5_DIGIT_FONT #00 ;codepoint_buf/byte0 LDA #0f AND #30 SFT ADD2 #2c DEO2
+    #0020 #28 DEO2 #43 #2f DEOk DEO
+    ;5X5_DIGIT_FONT #00 ;codepoint_buf/byte1 LDA #34 SFT ADD2 #2c DEO2
+    #0026 #28 DEO2 #43 #2f DEOk DEO
+    ;5X5_DIGIT_FONT #00 ;codepoint_buf/byte1 LDA #0f AND #30 SFT ADD2 #2c DEO2
+    #002c #28 DEO2 #43 #2f DEOk DEO
+
+    ( is this 8x16? )
+    ;line_buf/newline_8x16 LDA #0a EQU ?&is_8x16
+
+    ( this is 16x16 )
+        ( read the rest of the line )
+        ;line_buf/end_16x16 ;line_buf/end_8x16 SUB2k #aa DEO2 #ac DEO2 POP2
+        read_and_draw_16x16
+        BRK
+
+    &is_8x16
+        read_and_draw_8x16
+        BRK
+
+    &is_eof
+        LIT "d #18 DEO LIT "o #18 DEO LIT "n #18 DEO LIT "e #18 DEO LIT "! #18 DEO #0a #18 DEO
+        ( unset screen vector )
+        #0000 #20 DEO2
+        BRK
+
+    ( print out the pixel digits )
+    ( ;line_buf/pixels )
+    (   &print_loop LDAk #18 DEO INC2 DUP2 ;line_buf/newline LTH2 ?&print_loop )
+    ( POP2 )
+
+@read_and_draw_8x16
+    ( convert pixels from hex )
+    ;line_buf/end_8x16 ;line_buf/pixels ;linear_pixel_buf decode_hex
+    ( no reordering needed! )
+    ( set x and y )
+    #001c #28 DEO2 #0011 #2a DEO2
+    ( set data addr )
+    ;linear_pixel_buf #2c DEO2
+    ( set auto byte )
+    #06 #26 DEO
+    ( draw sprite on on foreground layer, in white )
+    #41 #2f DEOk DEO
+    JMP2r
+
+@read_and_draw_16x16
+    ( convert pixels from hex )
+    ;line_buf/end_16x16 ;line_buf/pixels ;linear_pixel_buf decode_hex
+    ( reorder pixels to match uxn format )
+    ;spr_buf/spr00 ;linear_pixel_buf/line0_16x16 sprite_from_quadrant
+    ;spr_buf/spr10 ;linear_pixel_buf/line0offset1_16x16 sprite_from_quadrant
+    ;spr_buf/spr01 ;linear_pixel_buf/line8_16x16 sprite_from_quadrant
+    ;spr_buf/spr11 ;linear_pixel_buf/line8offset1_16x16 sprite_from_quadrant
+    ( set x and y )
+    #0018 #28 DEO2 #0011 #2a DEO2
+    ( set data addr )
+    ;spr_buf #2c DEO2
+    ( set auto byte )
+    #16 #26 DEO
+    ( draw sprite on foreground layer, in white )
+    #41 #2f DEOk DEO
+    JMP2r
+
+@decode_hex ( src_end* src_start* dst_start* -- )
+    OVR2 OVR2 SWP2 LDA2
+    LIT "0 SUB DUP #0a LTH ?&done_low #07 SUB &done_low SWP
+    LIT "0 SUB DUP #0a LTH ?&done_high #07 SUB &done_high #40 SFT ORA
+    ROT ROT STA
+    INC2 SWP2 INC2 INC2 SWP2
+    ROT2k NIP2 LTH2 ?decode_hex
+    POP2 POP2 POP2
+    JMP2r
+
+@sprite_from_quadrant ( dst_start* src_start* -- )
+    OVR2 #0008 ADD2 ROT2 ROT2 ( now stack is: dst_end* dst_start* src_start* )
+    &continue
+        OVR2 OVR2 LDA ROT ROT STA
+        INC2 INC2 SWP2 INC2 SWP2
+        ROT2k NIP2 LTH2 ?&continue
+    POP2 POP2 POP2
+    JMP2r

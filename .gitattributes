@@ -1,0 +1,2 @@
+# hexdream.tal only handles LF, so prevent it becoming CRLF on Windows
+/unifont/unifont-15.0.06.hex text eol=lf
